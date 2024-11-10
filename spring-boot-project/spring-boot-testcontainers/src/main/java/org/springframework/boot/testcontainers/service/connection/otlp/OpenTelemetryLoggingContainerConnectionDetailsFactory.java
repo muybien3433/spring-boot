@@ -19,7 +19,8 @@ package org.springframework.boot.testcontainers.service.connection.otlp;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 
-import org.springframework.boot.actuate.autoconfigure.logging.opentelemetry.otlp.OtlpLoggingConnectionDetails;
+import org.springframework.boot.actuate.autoconfigure.logging.otlp.OtlpLoggingConnectionDetails;
+import org.springframework.boot.actuate.autoconfigure.logging.otlp.Transport;
 import org.springframework.boot.testcontainers.service.connection.ContainerConnectionDetailsFactory;
 import org.springframework.boot.testcontainers.service.connection.ContainerConnectionSource;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -31,13 +32,18 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
  * the {@code "otel/opentelemetry-collector-contrib"} image.
  *
  * @author Eddú Meléndez
+ * @author Moritz Halbritter
  */
 class OpenTelemetryLoggingContainerConnectionDetailsFactory
 		extends ContainerConnectionDetailsFactory<Container<?>, OtlpLoggingConnectionDetails> {
 
+	private static final int OTLP_GRPC_PORT = 4317;
+
+	private static final int OTLP_HTTP_PORT = 4318;
+
 	OpenTelemetryLoggingContainerConnectionDetailsFactory() {
 		super("otel/opentelemetry-collector-contrib",
-				"org.springframework.boot.actuate.autoconfigure.logging.opentelemetry.otlp.OtlpLoggingAutoConfiguration");
+				"org.springframework.boot.actuate.autoconfigure.logging.otlp.OtlpLoggingAutoConfiguration");
 	}
 
 	@Override
@@ -54,8 +60,12 @@ class OpenTelemetryLoggingContainerConnectionDetailsFactory
 		}
 
 		@Override
-		public String getUrl() {
-			return "http://%s:%d/v1/logs".formatted(getContainer().getHost(), getContainer().getMappedPort(4318));
+		public String getUrl(Transport transport) {
+			int port = switch (transport) {
+				case HTTP -> OTLP_HTTP_PORT;
+				case GRPC -> OTLP_GRPC_PORT;
+			};
+			return "http://%s:%d/v1/logs".formatted(getContainer().getHost(), getContainer().getMappedPort(port));
 		}
 
 	}

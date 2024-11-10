@@ -20,7 +20,6 @@ import java.io.File;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
@@ -36,6 +35,7 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.LoggerContextListener;
 import ch.qos.logback.core.ConsoleAppender;
 import ch.qos.logback.core.encoder.LayoutWrappingEncoder;
+import ch.qos.logback.core.joran.spi.JoranException;
 import ch.qos.logback.core.rolling.RollingFileAppender;
 import ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy;
 import ch.qos.logback.core.util.DynamicClassLoadingException;
@@ -287,6 +287,7 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 	}
 
 	@Test
+	@Deprecated(since = "3.3.5", forRemoval = true)
 	void getLoggerConfigurationForALL() {
 		this.loggingSystem.beforeInitialize();
 		initialize(this.initializationContext, null, null);
@@ -571,8 +572,7 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 		Stream.of(LoggingSystemProperty.values())
 			.map(LoggingSystemProperty::getEnvironmentVariableName)
 			.forEach(expectedProperties::add);
-		expectedProperties
-			.removeAll(Arrays.asList("LOG_FILE", "LOG_PATH", "LOGGED_APPLICATION_NAME", "LOGGED_APPLICATION_GROUP"));
+		expectedProperties.removeAll(List.of("LOG_FILE", "LOG_PATH"));
 		expectedProperties.add("org.jboss.logging.provider");
 		expectedProperties.add("LOG_CORRELATION_PATTERN");
 		expectedProperties.add("CONSOLE_LOG_STRUCTURED_FORMAT");
@@ -647,7 +647,7 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 			LogFile logFile = getLogFile(file.getPath(), null);
 			initialize(this.initializationContext, null, logFile);
 			assertThat(output).contains("LevelChangePropagator")
-				.contains("SizeAndTimeBasedFNATP")
+				.contains("SizeAndTimeBasedFileNamingAndTriggeringPolicy")
 				.contains("DebugLogbackConfigurator");
 		}
 		finally {
@@ -822,7 +822,7 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 	}
 
 	@Test
-	void applicationNameLoggingToFileWhenDisabled(CapturedOutput output) {
+	void applicationNameLoggingToFileWhenDisabled() {
 		this.environment.setProperty("spring.application.name", "myapp");
 		this.environment.setProperty("logging.include-application-name", "false");
 		File file = new File(tmpDir(), "logback-test.log");
@@ -848,8 +848,17 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 		assertThatIllegalStateException()
 			.isThrownBy(() -> initialize(this.initializationContext, "classpath:logback-invalid-format.txt",
 					getLogFile(tmpDir() + "/tmp.log", null)))
-			.satisfies((ex) -> assertThat(ex.getCause()).isInstanceOf(IllegalArgumentException.class)
-				.hasMessageStartingWith("Unsupported file extension"));
+			.satisfies((ex) -> assertThat(ex.getCause()).isInstanceOf(JoranException.class)
+				.hasMessageStartingWith("Problem parsing XML document. See previously reported errors"));
+	}
+
+	@Test
+	void whenConfigLocationIsXmlFileWithoutExtensionShouldWork(CapturedOutput output) {
+		this.loggingSystem.beforeInitialize();
+		initialize(this.initializationContext, "classpath:logback-without-extension",
+				getLogFile(tmpDir() + "/tmp.log", null));
+		this.logger.info("No extension and works!");
+		assertThat(output.toString()).contains("No extension and works!");
 	}
 
 	@Test
@@ -939,7 +948,7 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 	}
 
 	@Test
-	void applicationGroupLoggingToFileWhenDisabled(CapturedOutput output) {
+	void applicationGroupLoggingToFileWhenDisabled() {
 		this.environment.setProperty("spring.application.group", "myGroup");
 		this.environment.setProperty("logging.include-application-group", "false");
 		File file = new File(tmpDir(), "logback-test.log");

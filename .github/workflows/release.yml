@@ -8,8 +8,8 @@ concurrency:
 jobs:
   build-and-stage-release:
     name: Build and Stage Release
-    runs-on: ubuntu-latest
-    if: ${{ github.repository == 'spring-projects/spring-boot' }}
+    if: ${{ github.repository == 'spring-projects/spring-boot' || github.repository == 'spring-projects/spring-boot-commercial' }}
+    runs-on: ${{ vars.UBUNTU_MEDIUIM || 'ubuntu-latest' }}
     steps:
       - name: Check Out Code
         uses: actions/checkout@v4
@@ -17,39 +17,48 @@ jobs:
         id: build-and-publish
         uses: ./.github/actions/build
         with:
-          develocity-access-key: ${{ secrets.GRADLE_ENTERPRISE_SECRET_ACCESS_KEY }}
+          commercial-release-repository-url: ${{ vars.COMMERCIAL_RELEASE_REPO_URL }}
+          commercial-repository-password: ${{ secrets.COMMERCIAL_ARTIFACTORY_RO_PASSWORD }}
+          commercial-repository-username: ${{ secrets.COMMERCIAL_ARTIFACTORY_RO_USERNAME }}
+          commercial-snapshot-repository-url: ${{ vars.COMMERCIAL_SNAPSHOT_REPO_URL }}
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+          gradle-cache-read-only: false
           publish: true
       - name: Stage Release
         uses: spring-io/artifactory-deploy-action@26bbe925a75f4f863e1e529e85be2d0093cac116 # v0.0.1
         with:
-          uri: 'https://repo.spring.io'
-          username: ${{ secrets.ARTIFACTORY_USERNAME }}
-          password: ${{ secrets.ARTIFACTORY_PASSWORD }}
-          build-name: ${{ format('spring-boot-{0}', steps.build-and-publish.outputs.version)}}
-          repository: 'libs-staging-local'
+          build-name: ${{ vars.COMMERCIAL && format('spring-boot-commercial-{0}', steps.build-and-publish.outputs.version) || format('spring-boot-{0}', steps.build-and-publish.outputs.version) }}
           folder: 'deployment-repository'
+          password: ${{ vars.COMMERCIAL && secrets.COMMERCIAL_ARTIFACTORY_PASSWORD || secrets.ARTIFACTORY_PASSWORD }}
+          project: ${{ vars.COMMERCIAL && 'spring' }}
+          repository: ${{ vars.COMMERCIAL && 'spring-enterprise-maven-stage-local' || 'libs-staging-local' }}
           signing-key: ${{ secrets.GPG_PRIVATE_KEY }}
           signing-passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          uri: ${{ vars.COMMERCIAL_DEPLOY_REPO_URL || 'https://repo.spring.io' }}
+          username: ${{ vars.COMMERCIAL && secrets.COMMERCIAL_ARTIFACTORY_USERNAME || secrets.ARTIFACTORY_USERNAME }}
     outputs:
       version: ${{ steps.build-and-publish.outputs.version }}
   verify:
     name: Verify
     needs: build-and-stage-release
     uses: ./.github/workflows/verify.yml
+    secrets:
+      commercial-repository-password: ${{ secrets.COMMERCIAL_ARTIFACTORY_RO_PASSWORD }}
+      commercial-repository-username: ${{ secrets.COMMERCIAL_ARTIFACTORY_RO_USERNAME }}
+      google-chat-webhook-url: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
+      opensource-repository-password: ${{ secrets.ARTIFACTORY_PASSWORD }}
+      opensource-repository-username: ${{ secrets.ARTIFACTORY_USERNAME }}
+      token: ${{ secrets.GH_ACTIONS_REPO_TOKEN }}
     with:
       staging: true
       version: ${{ needs.build-and-stage-release.outputs.version }}
-    secrets:
-      google-chat-webhook-url: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
-      repository-password: ${{ secrets.ARTIFACTORY_PASSWORD }}
-      repository-username: ${{ secrets.ARTIFACTORY_USERNAME }}
-      token: ${{ secrets.GH_ACTIONS_REPO_TOKEN }}
   sync-to-maven-central:
     name: Sync to Maven Central
+    if: ${{ !vars.COMMERCIAL }}
     needs:
       - build-and-stage-release
       - verify
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.UBUNTU_SMALL || 'ubuntu-latest' }}
     steps:
       - name: Check Out Code
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -66,20 +75,25 @@ jobs:
     needs:
       - build-and-stage-release
       - sync-to-maven-central
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.UBUNTU_SMALL || 'ubuntu-latest' }}
     steps:
       - name: Set up JFrog CLI
-        uses: jfrog/setup-jfrog-cli@cb282f675d5f7add022d9b5e5fa139bb4e6ae9e3 # v4.3.2
+        uses: jfrog/setup-jfrog-cli@9fe0f98bd45b19e6e931d457f4e98f8f84461fb5 # v4.4.1
         env:
-          JF_ENV_SPRING: ${{ secrets.JF_ARTIFACTORY_SPRING }}
-      - name: Promote build
+          JF_ENV_SPRING: ${{ vars.COMMERCIAL && secrets.COMMERCIAL_JF_ARTIFACTORY_SPRING || secrets.JF_ARTIFACTORY_SPRING }}
+      - name: Promote open source build
+        if: ${{ !vars.COMMERCIAL }}
         run: jfrog rt build-promote ${{ format('spring-boot-{0}', needs.build-and-stage-release.outputs.version)}} ${{ github.run_number }} libs-release-local
+      - name: Promote commercial build
+        if: ${{ vars.COMMERCIAL }}
+        run: jfrog rt build-promote ${{ format('spring-boot-commercial-{0}', needs.build-and-stage-release.outputs.version)}} ${{ github.run_number }} spring-enterprise-maven-prod-local --project spring
   publish-gradle-plugin:
     name: Publish Gradle Plugin
+    if: ${{ !vars.COMMERCIAL }}
     needs:
       - build-and-stage-release
       - sync-to-maven-central
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.UBUNTU_SMALL || 'ubuntu-latest' }}
     steps:
       - name: Check Out Code
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -92,10 +106,11 @@ jobs:
           plugin-version: ${{ needs.build-and-stage-release.outputs.version }}
   publish-to-sdkman:
     name: Publish to SDKMAN!
+    if: ${{ !vars.COMMERCIAL }}
     needs:
       - build-and-stage-release
       - sync-to-maven-central
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.UBUNTU_SMALL || 'ubuntu-latest' }}
     steps:
       - name: Check Out Code
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -111,7 +126,7 @@ jobs:
     needs:
       - build-and-stage-release
       - sync-to-maven-central
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.UBUNTU_SMALL || 'ubuntu-latest' }}
     steps:
       - name: Check Out Code
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -120,6 +135,19 @@ jobs:
         with:
           spring-boot-version: ${{ needs.build-and-stage-release.outputs.version }}
           token: ${{ secrets.GH_ACTIONS_REPO_TOKEN }}
+  trigger-docs-build:
+    name: Trigger Docs Build
+    needs:
+      - build-and-stage-release
+      - sync-to-maven-central
+    permissions:
+      actions: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Deploy Docs Workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy-docs.yml --repo spring-projects/spring-boot -r docs-build -f build-refname=${{ github.ref_name }} -f build-version=${{ needs.build-and-stage-release.outputs.version }}
   create-github-release:
     name: Create GitHub Release
     needs:
@@ -127,8 +155,9 @@ jobs:
       - promote-release
       - publish-gradle-plugin
       - publish-to-sdkman
+      - trigger-docs-build
       - update-homebrew-tap
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.UBUNTU_SMALL || 'ubuntu-latest' }}
     steps:
       - name: Check Out Code
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -137,3 +166,4 @@ jobs:
         with:
           milestone: ${{ needs.build-and-stage-release.outputs.version }}
           token: ${{ secrets.GH_ACTIONS_REPO_TOKEN }}
+          commercial: ${{ vars.COMMERCIAL }}

@@ -60,7 +60,7 @@ The following service connection factories are provided in the `spring-boot-test
 | Containers of type `JdbcDatabaseContainer`
 
 | `KafkaConnectionDetails`
-| Containers of type `org.testcontainers.containers.KafkaContainer`, `org.testcontainers.kafka.KafkaContainer` or `RedpandaContainer`
+| Containers of type `org.testcontainers.kafka.KafkaContainer`, `org.testcontainers.kafka.ConfluentKafkaContainer` or `RedpandaContainer`
 
 | `LiquibaseConnectionDetails`
 | Containers of type `JdbcDatabaseContainer`
@@ -72,7 +72,7 @@ The following service connection factories are provided in the `spring-boot-test
 | Containers of type `Neo4jContainer`
 
 | `OtlpLoggingConnectionDetails`
-| Containers named "otel/opentelemetry-collector-contrib"
+| Containers named "otel/opentelemetry-collector-contrib" or of type `LgtmStackContainer`
 
 | `OtlpMetricsConnectionDetails`
 | Containers named "otel/opentelemetry-collector-contrib" or of type `LgtmStackContainer`
@@ -84,7 +84,7 @@ The following service connection factories are provided in the `spring-boot-test
 | Containers of type `PulsarContainer`
 
 | `R2dbcConnectionDetails`
-| Containers of type `MariaDBContainer`, `MSSQLServerContainer`, `MySQLContainer`, `OracleContainer`, or `PostgreSQLContainer`
+| Containers of type `ClickHouseContainer`, `MariaDBContainer`, `MSSQLServerContainer`, `MySQLContainer`, `OracleContainer`, or `PostgreSQLContainer`
 
 | `RabbitConnectionDetails`
 | Containers of type `RabbitMQContainer`

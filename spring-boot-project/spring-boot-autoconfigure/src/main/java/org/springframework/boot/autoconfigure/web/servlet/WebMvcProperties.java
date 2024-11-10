@@ -237,7 +237,7 @@ public class WebMvcProperties {
 		}
 
 		public String getServletMapping() {
-			if (this.path.equals("") || this.path.equals("/")) {
+			if (this.path.isEmpty() || this.path.equals("/")) {
 				return "/";
 			}
 			if (this.path.endsWith("/")) {
@@ -428,7 +428,7 @@ public class WebMvcProperties {
 	public static class Problemdetails {
 
 		/**
-		 * Whether RFC 7807 Problem Details support should be enabled.
+		 * Whether RFC 9457 Problem Details support should be enabled.
 		 */
 		private boolean enabled = false;
 

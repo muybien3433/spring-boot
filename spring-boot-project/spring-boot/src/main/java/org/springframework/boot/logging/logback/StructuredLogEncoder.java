@@ -25,9 +25,11 @@ import ch.qos.logback.core.encoder.Encoder;
 import ch.qos.logback.core.encoder.EncoderBase;
 
 import org.springframework.boot.logging.structured.CommonStructuredLogFormat;
+import org.springframework.boot.logging.structured.StructureLoggingJsonMembersCustomizer;
 import org.springframework.boot.logging.structured.StructuredLogFormatter;
 import org.springframework.boot.logging.structured.StructuredLogFormatterFactory;
 import org.springframework.boot.logging.structured.StructuredLogFormatterFactory.CommonFormatters;
+import org.springframework.boot.util.Instantiator;
 import org.springframework.boot.util.Instantiator.AvailableParameters;
 import org.springframework.core.env.Environment;
 import org.springframework.util.Assert;
@@ -79,11 +81,34 @@ public class StructuredLogEncoder extends EncoderBase<ILoggingEvent> {
 	}
 
 	private void addCommonFormatters(CommonFormatters<ILoggingEvent> commonFormatters) {
-		commonFormatters.add(CommonStructuredLogFormat.ELASTIC_COMMON_SCHEMA,
-				(instantiator) -> new ElasticCommonSchemaStructuredLogFormatter(instantiator.getArg(Environment.class),
-						instantiator.getArg(ThrowableProxyConverter.class)));
-		commonFormatters.add(CommonStructuredLogFormat.LOGSTASH, (instantiator) -> new LogstashStructuredLogFormatter(
-				instantiator.getArg(ThrowableProxyConverter.class)));
+		commonFormatters.add(CommonStructuredLogFormat.ELASTIC_COMMON_SCHEMA, this::createEcsFormatter);
+		commonFormatters.add(CommonStructuredLogFormat.GRAYLOG_EXTENDED_LOG_FORMAT, this::createGraylogFormatter);
+		commonFormatters.add(CommonStructuredLogFormat.LOGSTASH, this::createLogstashFormatter);
+	}
+
+	private StructuredLogFormatter<ILoggingEvent> createEcsFormatter(Instantiator<?> instantiator) {
+		Environment environment = instantiator.getArg(Environment.class);
+		ThrowableProxyConverter throwableProxyConverter = instantiator.getArg(ThrowableProxyConverter.class);
+		StructureLoggingJsonMembersCustomizer<?> jsonMembersCustomizer = instantiator
+			.getArg(StructureLoggingJsonMembersCustomizer.class);
+		return new ElasticCommonSchemaStructuredLogFormatter(environment, throwableProxyConverter,
+				jsonMembersCustomizer);
+	}
+
+	private StructuredLogFormatter<ILoggingEvent> createGraylogFormatter(Instantiator<?> instantiator) {
+		Environment environment = instantiator.getArg(Environment.class);
+		ThrowableProxyConverter throwableProxyConverter = instantiator.getArg(ThrowableProxyConverter.class);
+		StructureLoggingJsonMembersCustomizer<?> jsonMembersCustomizer = instantiator
+			.getArg(StructureLoggingJsonMembersCustomizer.class);
+		return new GraylogExtendedLogFormatStructuredLogFormatter(environment, throwableProxyConverter,
+				jsonMembersCustomizer);
+	}
+
+	private StructuredLogFormatter<ILoggingEvent> createLogstashFormatter(Instantiator<?> instantiator) {
+		ThrowableProxyConverter throwableProxyConverter = instantiator.getArg(ThrowableProxyConverter.class);
+		StructureLoggingJsonMembersCustomizer<?> jsonMembersCustomizer = instantiator
+			.getArg(StructureLoggingJsonMembersCustomizer.class);
+		return new LogstashStructuredLogFormatter(throwableProxyConverter, jsonMembersCustomizer);
 	}
 
 	@Override

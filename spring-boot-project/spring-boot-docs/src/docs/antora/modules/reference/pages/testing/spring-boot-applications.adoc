@@ -176,7 +176,7 @@ If you need to start a full running server, we recommend that you use random por
 If you use `@SpringBootTest(webEnvironment=WebEnvironment.RANDOM_PORT)`, an available port is picked at random each time your test runs.
 
 The `@LocalServerPort` annotation can be used to xref:how-to:webserver.adoc#howto.webserver.discover-port[inject the actual port used] into your test.
-For convenience, tests that need to make REST calls to the started server can additionally `@Autowire` a {url-spring-framework-docs}/testing/webtestclient.html[`WebTestClient`], which resolves relative links to the running server and comes with a dedicated API for verifying responses, as shown in the following example:
+For convenience, tests that need to make REST calls to the started server can additionally autowire a {url-spring-framework-docs}/testing/webtestclient.html[`WebTestClient`], which resolves relative links to the running server and comes with a dedicated API for verifying responses, as shown in the following example:
 
 include-code::MyRandomPortWebTestClientTests[]
 
@@ -338,7 +338,7 @@ The following example uses HtmlUnit:
 include-code::MyHtmlUnitTests[]
 
 NOTE: By default, Spring Boot puts `WebDriver` beans in a special "`scope`" to ensure that the driver exits after each test and that a new instance is injected.
-If you do not want this behavior, you can add `@Scope("singleton")` to your `WebDriver` `@Bean` definition.
+If you do not want this behavior, you can add `@Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)` to your `WebDriver` `@Bean` definition.
 
 WARNING: The `webDriver` scope created by Spring Boot will replace any user defined scope of the same name.
 If you define your own `webDriver` scope you may find it stops working when you use `@WebMvcTest`.
@@ -417,14 +417,14 @@ dependencies {
 }
 ----
 
-This testing module ships the {url-spring-graphql-docs}/#testing-graphqltester[GraphQlTester].
+This testing module ships the {url-spring-graphql-docs}/testing.html#testing.graphqltester[GraphQlTester].
 The tester is heavily used in test, so be sure to become familiar with using it.
 There are `GraphQlTester` variants and Spring Boot will auto-configure them depending on the type of tests:
 
 * the `ExecutionGraphQlServiceTester` performs tests on the server side, without a client nor a transport
 * the `HttpGraphQlTester` performs tests with a client that connects to a server, with or without a live server
 
-Spring Boot helps you to test your {url-spring-graphql-docs}/#controllers[Spring GraphQL Controllers] with the `@GraphQlTest` annotation.
+Spring Boot helps you to test your {url-spring-graphql-docs}/controllers.html[Spring GraphQL Controllers] with the `@GraphQlTest` annotation.
 `@GraphQlTest` auto-configures the Spring GraphQL infrastructure, without any transport nor server being involved.
 This limits scanned beans to `@Controller`, `RuntimeWiringConfigurer`, `JsonComponent`, `Converter`, `GenericConverter`, `DataFetcherExceptionResolver`, `Instrumentation` and `GraphQlSourceBuilderCustomizer`.
 Regular `@Component` and `@ConfigurationProperties` beans are not scanned when the `@GraphQlTest` annotation is used.
